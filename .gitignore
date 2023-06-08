@@ -233,3 +233,4 @@ data/train_dataset/validation/*
 data/test_dataset/validation/*
 models/*
 outputs/*
+config/*
