@@ -25,10 +25,10 @@ from typing import Any, Optional, Tuple
 
 import numpy as np
 import torch
-from arguments import DataTrainingArguments, ModelArguments
+from arguments import DataTrainingArguments, ModelArguments, TrainingArguments
 from datasets import DatasetDict
 from tqdm.auto import tqdm
-from transformers import PreTrainedTokenizerFast, TrainingArguments, is_torch_available
+from transformers import PreTrainedTokenizerFast, is_torch_available
 from transformers.trainer_utils import get_last_checkpoint
 
 
