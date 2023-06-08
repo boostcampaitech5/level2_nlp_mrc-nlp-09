@@ -34,18 +34,6 @@ from transformers import (
 )
 from utils_qa import check_no_error, postprocess_qa_predictions
 from types import SimpleNamespace
-import yaml
-from collections import namedtuple
-
-
-def load_yaml(yaml_path):
-    config_file = None
-    with open(yaml_path) as f:
-        config_file = yaml.load(f, Loader=yaml.FullLoader)
-    config = namedtuple("config", config_file.keys())
-    config_tuple = config(**config_file)
-
-    return config_tuple
 
 
 logger = logging.getLogger(__name__)
@@ -54,11 +42,11 @@ logger = logging.getLogger(__name__)
 def main():
     # 가능한 arguments 들은 ./arguments.py 나 transformer package 안의 src/transformers/training_args.py 에서 확인 가능합니다.
     # --help flag 를 실행시켜서 확인할 수 도 있습니다.
-    all_args = load_yaml('../config/config.yaml')
-    
-    model_args = SimpleNamespace(**all_args.model)
-    data_args = SimpleNamespace(**all_args.data)
-    training_args = SimpleNamespace(**all_args.training)
+    parser = HfArgumentParser(
+        (ModelArguments, DataTrainingArguments, TrainingArguments)
+    )
+    model_args, data_args, training_args = parser.parse_args_into_dataclasses()
+    print(model_args.model_name_or_path)
 
     print(f"model is from {model_args.model_name_or_path}")
     print(f"data is from {data_args.dataset_name}")
