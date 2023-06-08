@@ -2,7 +2,7 @@ import logging
 import os
 import sys
 
-from code.arguments_ksh import DataTrainingArguments, ModelArguments, TrainingArguments
+from arguments import DataTrainingArguments, ModelArguments, TrainingArguments
 from datasets import DatasetDict, load_from_disk
 import evaluate
 from trainer_qa import QuestionAnsweringTrainer

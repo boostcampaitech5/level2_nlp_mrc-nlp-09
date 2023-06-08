@@ -10,7 +10,7 @@ import sys
 from typing import Callable, Dict, List, Tuple
 
 import numpy as np
-from arguments import DataTrainingArguments, ModelArguments
+from arguments import DataTrainingArguments, ModelArguments, TrainingArguments
 from datasets import (
     Dataset,
     DatasetDict,
@@ -32,8 +32,21 @@ from transformers import (
     TrainingArguments,
     set_seed,
 )
-from utils_qa import check_no_error, postprocess_qa_predictions, load_yaml
+from utils_qa import check_no_error, postprocess_qa_predictions
 from types import SimpleNamespace
+import yaml
+from collections import namedtuple
+
+
+def load_yaml(yaml_path):
+    config_file = None
+    with open(yaml_path) as f:
+        config_file = yaml.load(f, Loader=yaml.FullLoader)
+    config = namedtuple("config", config_file.keys())
+    config_tuple = config(**config_file)
+
+    return config_tuple
+
 
 logger = logging.getLogger(__name__)
 
