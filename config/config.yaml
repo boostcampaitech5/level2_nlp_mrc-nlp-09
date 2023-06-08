@@ -1,0 +1,75 @@
+wandb:
+  project_name: klue_mrc
+  run_name: baseline_with_eval_logging
+
+model:
+  model_name_or_path: klue/bert-base
+  # Path to pretrained model or model identifier from huggingface.co/models
+  config_name: 
+  # Pretrained config name or path if not the same as model_name
+  tokenizer_name: 
+  # Pretrained tokenizer name or path if not the same as model_name
+
+data:
+  dataset_name: ../data/train_dataset
+  # The name of the dataset to use.
+  overwrite_cache: False
+  # Overwrite the cached training and evaluation sets
+  preprocessing_num_workers: 
+  # The number of processes to use for the preprocessing.
+  max_seq_length: 384
+  # The maximum total input sequence length after tokenization. Sequences longer than this will be truncated, sequences shorter will be padded.
+  pad_to_max_length: False
+  # Whether to pad all samples to `max_seq_length`. If False, will pad the samples dynamically when batching to the maximum length in the batch (which can be faster on GPU but will be slower on TPU).
+  doc_stride: 128
+  # When splitting up a long document into chunks, how much stride to take between chunks.
+  max_answer_length: 30
+  # The maximum length of an answer that can be generated. This is needed because the start and end predictions are not conditioned on one another.
+  eval_retrieval: True
+  # Whether to run passage retrieval using sparse embedding.
+  num_clusters: 64
+  # Define how many clusters to use for faiss.
+  top_k_retrieval: 10
+  # Define how many top-k passages to retrieve based on similarity.
+  use_faiss: False
+  # Whether to build with faiss
+
+training:
+  output_dir: ../models/baseline_batch_64
+  # The output directory where the model predictions and checkpoints will be written.
+  overwrite_output_dir: False
+  # Overwrite the content of the output directory. Use this to continue training if output_dir points to a checkpoint directory.
+  do_train: True
+  # Whether to run training.
+  do_eval: True
+  # Whether to run eval on the dev set.
+  per_device_train_batch_size: 64
+  # Batch size per GPU/TPU core/CPU for training.
+  per_device_eval_batch_size: 64
+  # Batch size per GPU/TPU core/CPU for evaluation.
+  learning_rate: 5e-5
+  # The initial learning rate for AdamW.
+  weight_decay: 0.0
+  # Weight decay for AdamW if we apply some.
+  num_train_epochs: 3
+  # Total number of training epochs to perform.
+  warmup_steps: 0
+  # Linear warmup over warmup_steps.
+  logging_steps: 100
+  # Log every X updates steps.
+  save_total_limit: 2
+  # Limit the total amount of checkpoints. Deletes the older checkpoints in the output_dir. Default is unlimited checkpoints
+  evaluation_strategy: steps
+  # The evaluation strategy to use.
+  save_steps: 300
+  # Save checkpoint every X updates steps.
+  eval_steps: 100
+  # Run an evaluation every X steps.
+  load_best_model_at_end: True
+  # Whether or not to load the best model found during training at the end of training.
+  metric_for_best_model: exact_match
+  # The metric to use to compare two different models.
+  greater_is_better: True
+  # Whether the `metric_for_best_model` should be maximized or not.
+  seed: 42
+  # Fix random state with a seed
