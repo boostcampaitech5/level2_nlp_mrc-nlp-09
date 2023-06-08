@@ -10,7 +10,7 @@ import sys
 from typing import Callable, Dict, List, Tuple
 
 import numpy as np
-from arguments import DataTrainingArguments, ModelArguments
+from arguments import DataTrainingArguments, ModelArguments, TrainingArguments
 from datasets import (
     Dataset,
     DatasetDict,

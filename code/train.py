@@ -2,6 +2,7 @@ import logging
 import os
 import sys
 
+from arguments import DataTrainingArguments, ModelArguments, TrainingArguments
 from datasets import DatasetDict, load_from_disk
 import evaluate
 from trainer_qa import QuestionAnsweringTrainer
