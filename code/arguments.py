@@ -55,9 +55,17 @@ class DataTrainingArguments:
     Arguments pertaining to what data we are going to input our model for training and eval.
     """
 
-    dataset_name: Optional[str] = field(
-        default=data_args.dataset_name,
-        metadata={"help": "The name of the dataset to use."},
+    train_dataset_name: Optional[str] = field(
+        default=data_args.train_dataset_name,
+        metadata={"help": "The name of the train dataset to use."},
+    )
+    eval_dataset_name: Optional[str] = field(
+        default=data_args.eval_dataset_name,
+        metadata={"help": "The name of the validation dataset to use."},
+    )
+    test_dataset_name: Optional[str] = field(
+        default=data_args.test_dataset_name,
+        metadata={"help": "The name of the test dataset to use."},
     )
     overwrite_cache: bool = field(
         default=data_args.overwrite_cache,
@@ -119,11 +127,16 @@ class TrainingArguments(TrainingArguments):
     """
     Arguments pertaining to what data we are going to input our model for training and eval.
     """
-
+    model_dir: str = field(
+        default=training_args.model_dir,
+        metadata={
+            "help": "The output directory where the model checkpoints will be written."
+        },
+    )
     output_dir: str = field(
         default=training_args.output_dir,
         metadata={
-            "help": "The output directory where the model predictions and checkpoints will be written."
+            "help": "The output directory where the model predictions will be written."
         },
     )
     overwrite_output_dir: bool = field(
@@ -145,6 +158,12 @@ class TrainingArguments(TrainingArguments):
         default=training_args.do_eval,
         metadata={
             "help": "Whether to run eval on the dev set."
+        },
+    )
+    do_predict: bool = field(
+        default=training_args.do_predict,
+        metadata={
+            "help": "Whether to run on the test set."
         },
     )
     per_device_train_batch_size: int = field(

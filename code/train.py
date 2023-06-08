@@ -3,7 +3,7 @@ import os
 import sys
 
 from arguments import DataTrainingArguments, ModelArguments, TrainingArguments
-from datasets import DatasetDict, load_from_disk
+from datasets import DatasetDict, load_from_disk, Dataset, DatasetDict
 import evaluate
 from trainer_qa import QuestionAnsweringTrainer
 from transformers import (
@@ -20,6 +20,7 @@ import wandb
 import yaml
 from collections import namedtuple
 from types import SimpleNamespace
+import pandas as pd
 
 
 def load_yaml(yaml_path):
@@ -52,7 +53,7 @@ def main():
     # training_args.per_device_train_batch_size = 4
     # print(training_args.per_device_train_batch_size)
     print(f"model is from {model_args.model_name_or_path}")
-    print(f"data is from {data_args.dataset_name}")
+    print(f"data is from {data_args.train_dataset_name} and {data_args.eval_dataset_name}")
 
     # logging 설정
     logging.basicConfig(
@@ -68,7 +69,15 @@ def main():
     ### QUESTION: 왜 utils_qa.py 내의 set_seed를 사용하지 않았을까? ###
     set_seed(training_args.seed)
 
-    datasets = load_from_disk(data_args.dataset_name)
+    # datasets = load_from_disk(data_args.dataset_name)
+    train_df = pd.read_csv(data_args.train_dataset_name)
+    eval_df = pd.read_csv(data_args.eval_dataset_name)
+    train_dataset = Dataset.from_pandas(train_df, preserve_index=False)
+    eval_dataset = Dataset.from_pandas(eval_df, preserve_index=False)
+    datasets = DatasetDict({
+        "train": train_dataset,
+        "validation": eval_dataset
+    })
     print(datasets)
 
     # AutoConfig를 이용하여 pretrained model 과 tokenizer를 불러옵니다.
@@ -175,6 +184,7 @@ def run_mrc(
             answers = examples[answer_column_name][sample_index]
 
             # answer가 없을 경우 cls_index를 answer로 설정합니다(== example에서 정답이 없는 경우 존재할 수 있음).
+            answers = eval(answers)
             if len(answers["answer_start"]) == 0:
                 tokenized_examples["start_positions"].append(cls_index)
                 tokenized_examples["end_positions"].append(cls_index)
@@ -299,7 +309,7 @@ def run_mrc(
             features=features,
             predictions=predictions,
             max_answer_length=data_args.max_answer_length,
-            output_dir=training_args.output_dir,
+            output_dir=training_args.model_dir,
         )
         # Metric을 구할 수 있도록 Format을 맞춰줍니다.
         formatted_predictions = [
@@ -359,7 +369,7 @@ def run_mrc(
         trainer.save_state()
 
         output_train_file = os.path.join(
-            training_args.output_dir, "train_results.txt")
+            training_args.model_dir, "train_results.txt")
 
         with open(output_train_file, "w") as writer:
             logger.info("***** Train results *****")
@@ -371,7 +381,7 @@ def run_mrc(
 
         # State 저장
         trainer.state.save_to_json(
-            os.path.join(training_args.output_dir, "trainer_state.json")
+            os.path.join(training_args.model_dir, "trainer_state.json")
         )
 
     # Evaluation
