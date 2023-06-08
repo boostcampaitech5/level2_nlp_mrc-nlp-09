@@ -8,20 +8,24 @@ from tqdm import tqdm
 import numpy as np
 
 
-def transform_df(df, save_csv=False):
-    answers = df.answers
-    answer_starts = pd.DataFrame([answer['answer_start'][0] for answer in answers])
-    answer_starts.columns =['answer_start']
-    answer_text = pd.DataFrame([answer['text'][0] for answer in answers])
-    answer_text.columns = ['answer_text']
+def transform_df(df, just_for_check=False, save_path=None):
+    if just_for_check:
+        answers = df.answers
+        answer_starts = pd.DataFrame([answer['answer_start'][0] for answer in answers])
+        answer_starts.columns =['answer_start']
+        answer_text = pd.DataFrame([answer['text'][0] for answer in answers])
+        answer_text.columns = ['answer_text']
     
-    df_modified = df.drop(['answers', '__index_level_0__'], axis=1)
-    df_modified = pd.concat([df_modified, answer_starts, answer_text], axis=1)
-    df_modified = df_modified[['id', 'title', 'question', 'answer_start', 'answer_text', 'context', 'document_id']]
-    df_modified = df_modified.sort_values('id')
+        df_modified = df.drop(['answers', '__index_level_0__'], axis=1)
+        df_modified = pd.concat([df_modified, answer_starts, answer_text], axis=1)
+        df_modified = df_modified[['id', 'title', 'question', 'answer_start', 'answer_text', 'context', 'document_id']]
+        df_modified = df_modified.sort_values('id')
+    else:
+        df_modified = df.drop(['__index_level_0__'], axis=1)
+        df_modified = df_modified[['id', 'title', 'question', 'answers', 'context', 'document_id']]
     
-    if save_csv:
-        df_modified.to_csv('../data/train_csv_version.csv', index=False)
+    if save_path:
+        df_modified.to_csv(save_path, index=False)
     
     return df_modified
 
