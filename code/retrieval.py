@@ -435,7 +435,7 @@ if __name__ == "__main__":
     # Test sparse
     # org_dataset = load_from_disk(args.dataset_name)
     train_df = pd.read_csv(data_args.train_dataset_name)
-    eval_df = pd.read_csv(data_args.train_dataset_name)
+    eval_df = pd.read_csv(data_args.eval_dataset_name)
     train_dataset = Dataset.from_pandas(train_df, preserve_index=False)
     eval_dataset = Dataset.from_pandas(eval_df, preserve_index=False)
     org_dataset = DatasetDict({

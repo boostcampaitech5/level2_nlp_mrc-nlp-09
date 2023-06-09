@@ -89,7 +89,11 @@ def main():
     set_seed(training_args.seed)
 
     # datasets = load_from_disk(data_args.dataset_name)
-    test_df = pd.read_csv(data_args.test_dataset_name)
+    if training_args.do_eval:
+        test_df = pd.read_csv(data_args.eval_dataset_name)
+    elif training_args.do_predict:
+        test_df = pd.read_csv(data_args.test_dataset_name)
+        
     test_dataset = Dataset.from_pandas(test_df, preserve_index=False)
     datasets = DatasetDict({
         "validation": test_dataset,
