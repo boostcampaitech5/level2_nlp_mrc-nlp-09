@@ -182,9 +182,9 @@ def run_mrc(
             # 하나의 example이 여러개의 span을 가질 수 있습니다.
             sample_index = sample_mapping[i]
             answers = examples[answer_column_name][sample_index]
+            answers = eval(answers)
 
             # answer가 없을 경우 cls_index를 answer로 설정합니다(== example에서 정답이 없는 경우 존재할 수 있음).
-            answers = eval(answers)
             if len(answers["answer_start"]) == 0:
                 tokenized_examples["start_positions"].append(cls_index)
                 tokenized_examples["end_positions"].append(cls_index)
@@ -320,7 +320,7 @@ def run_mrc(
 
         elif training_args.do_eval:
             references = [
-                {"id": ex["id"], "answers": ex[answer_column_name]}
+                {"id": ex["id"], "answers": eval(ex[answer_column_name])}
                 for ex in datasets["validation"]
             ]
             return EvalPrediction(

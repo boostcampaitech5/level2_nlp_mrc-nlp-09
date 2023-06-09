@@ -273,40 +273,43 @@ def postprocess_qa_predictions(
 
     # output_dir이 있으면 모든 dicts를 저장합니다.
     if output_dir is not None:
-        assert os.path.isdir(output_dir), f"{output_dir} is not a directory."
-
-        prediction_file = os.path.join(
+        # assert os.path.isdir(output_dir), f"{output_dir} is not a directory."
+        pass
+    else:
+        os.mkdir(output_dir)
+        
+    prediction_file = os.path.join(
+        output_dir,
+        "predictions.json" if prefix is None else f"predictions_{prefix}".json,
+    )
+    nbest_file = os.path.join(
+        output_dir,
+        "nbest_predictions.json"
+        if prefix is None
+        else f"nbest_predictions_{prefix}".json,
+    )
+    if version_2_with_negative:
+        null_odds_file = os.path.join(
             output_dir,
-            "predictions.json" if prefix is None else f"predictions_{prefix}".json,
+            "null_odds.json" if prefix is None else f"null_odds_{prefix}".json,
         )
-        nbest_file = os.path.join(
-            output_dir,
-            "nbest_predictions.json"
-            if prefix is None
-            else f"nbest_predictions_{prefix}".json,
-        )
-        if version_2_with_negative:
-            null_odds_file = os.path.join(
-                output_dir,
-                "null_odds.json" if prefix is None else f"null_odds_{prefix}".json,
-            )
 
-        logger.info(f"Saving predictions to {prediction_file}.")
-        with open(prediction_file, "w", encoding="utf-8") as writer:
+    logger.info(f"Saving predictions to {prediction_file}.")
+    with open(prediction_file, "w", encoding="utf-8") as writer:
+        writer.write(
+            json.dumps(all_predictions, indent=4, ensure_ascii=False) + "\n"
+        )
+    logger.info(f"Saving nbest_preds to {nbest_file}.")
+    with open(nbest_file, "w", encoding="utf-8") as writer:
+        writer.write(
+            json.dumps(all_nbest_json, indent=4, ensure_ascii=False) + "\n"
+        )
+    if version_2_with_negative:
+        logger.info(f"Saving null_odds to {null_odds_file}.")
+        with open(null_odds_file, "w", encoding="utf-8") as writer:
             writer.write(
-                json.dumps(all_predictions, indent=4, ensure_ascii=False) + "\n"
+                json.dumps(scores_diff_json, indent=4, ensure_ascii=False) + "\n"
             )
-        logger.info(f"Saving nbest_preds to {nbest_file}.")
-        with open(nbest_file, "w", encoding="utf-8") as writer:
-            writer.write(
-                json.dumps(all_nbest_json, indent=4, ensure_ascii=False) + "\n"
-            )
-        if version_2_with_negative:
-            logger.info(f"Saving null_odds to {null_odds_file}.")
-            with open(null_odds_file, "w", encoding="utf-8") as writer:
-                writer.write(
-                    json.dumps(scores_diff_json, indent=4, ensure_ascii=False) + "\n"
-                )
 
     return all_predictions
 
@@ -321,14 +324,14 @@ def check_no_error(
     # last checkpoint 찾기.
     last_checkpoint = None
     if (
-        os.path.isdir(training_args.output_dir)
+        os.path.isdir(training_args.model_dir)
         and training_args.do_train
         and not training_args.overwrite_output_dir
     ):
-        last_checkpoint = get_last_checkpoint(training_args.output_dir)
-        if last_checkpoint is None and len(os.listdir(training_args.output_dir)) > 0:
+        last_checkpoint = get_last_checkpoint(training_args.model_dir)
+        if last_checkpoint is None and len(os.listdir(training_args.model_dir)) > 0:
             raise ValueError(
-                f"Output directory ({training_args.output_dir}) already exists and is not empty. "
+                f"Output directory ({training_args.model_dir}) already exists and is not empty. "
                 "Use --overwrite_output_dir to overcome."
             )
         elif last_checkpoint is not None:

@@ -8,9 +8,12 @@ from typing import List, Optional, Tuple, Union
 import faiss
 import numpy as np
 import pandas as pd
-from datasets import Dataset, concatenate_datasets, load_from_disk
+from datasets import Dataset, concatenate_datasets, load_from_disk, DatasetDict
 from sklearn.feature_extraction.text import TfidfVectorizer
 from tqdm.auto import tqdm
+
+from arguments import DataTrainingArguments, ModelArguments, TrainingArguments
+from transformers import HfArgumentParser
 
 
 @contextmanager
@@ -399,8 +402,21 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
+    parser = HfArgumentParser(
+        (ModelArguments, DataTrainingArguments, TrainingArguments)
+    )
+    model_args, data_args, training_args = parser.parse_args_into_dataclasses()
+    
     # Test sparse
-    org_dataset = load_from_disk(args.dataset_name)
+    # org_dataset = load_from_disk(args.dataset_name)
+    train_df = pd.read_csv(data_args.train_dataset_name)
+    eval_df = pd.read_csv(data_args.train_dataset_name)
+    train_dataset = Dataset.from_pandas(train_df, preserve_index=False)
+    eval_dataset = Dataset.from_pandas(eval_df, preserve_index=False)
+    org_dataset = DatasetDict({
+        "train": train_dataset,
+        "validation": eval_dataset
+    })
     full_ds = concatenate_datasets(
         [
             org_dataset["train"].flatten_indices(),
