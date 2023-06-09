@@ -19,7 +19,6 @@ def transform_df(df, just_for_check=False, save_path=None):
         df_modified = df.drop(['answers', '__index_level_0__'], axis=1)
         df_modified = pd.concat([df_modified, answer_starts, answer_text], axis=1)
         df_modified = df_modified[['id', 'title', 'question', 'answer_start', 'answer_text', 'context', 'document_id']]
-        df_modified = df_modified.sort_values('id')
     else:
         df_modified = df.drop(['__index_level_0__'], axis=1)
         df_modified = df_modified[['id', 'title', 'question', 'answers', 'context', 'document_id']]

@@ -1,3 +1,7 @@
+import pandas as pd
+from tqdm import tqdm
+import random
+
 def k_multi_passages(df, k=3):
     multi_df = df.copy()
     len_df = len(df)
