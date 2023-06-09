@@ -14,6 +14,9 @@ from tqdm.auto import tqdm
 
 from arguments import DataTrainingArguments, ModelArguments, TrainingArguments
 from transformers import HfArgumentParser
+from types import SimpleNamespace
+import yaml
+from collections import namedtuple
 
 
 @contextmanager
@@ -382,30 +385,52 @@ class SparseRetrieval:
 
 if __name__ == "__main__":
 
-    import argparse
+    # import argparse
 
-    parser = argparse.ArgumentParser(description="")
-    parser.add_argument(
-        "--dataset_name", metavar="./data/train_dataset", type=str, help=""
-    )
-    parser.add_argument(
-        "--model_name_or_path",
-        metavar="bert-base-multilingual-cased",
-        type=str,
-        help="",
-    )
-    parser.add_argument("--data_path", metavar="./data", type=str, help="")
-    parser.add_argument(
-        "--context_path", metavar="wikipedia_documents", type=str, help=""
-    )
-    parser.add_argument("--use_faiss", metavar=False, type=bool, help="")
+    # parser = argparse.ArgumentParser(description="")
+    # parser.add_argument(
+    #     "--dataset_name", metavar="./data/train_dataset", type=str, help=""
+    # )
+    # parser.add_argument(
+    #     "--model_name_or_path",
+    #     metavar="bert-base-multilingual-cased",
+    #     type=str,
+    #     help="",
+    # )
+    # parser.add_argument("--data_path", metavar="./data", type=str, help="")
+    # parser.add_argument(
+    #     "--context_path", metavar="wikipedia_documents", type=str, help=""
+    # )
+    # parser.add_argument("--use_faiss", metavar=False, type=bool, help="")
 
-    args = parser.parse_args()
+    # args = parser.parse_args()
 
     parser = HfArgumentParser(
         (ModelArguments, DataTrainingArguments, TrainingArguments)
     )
     model_args, data_args, training_args = parser.parse_args_into_dataclasses()
+    
+    def load_yaml(yaml_path):
+        config_file = None
+        with open(yaml_path) as f:
+            config_file = yaml.load(f, Loader=yaml.FullLoader)
+        config = namedtuple("config", config_file.keys())
+        config_tuple = config(**config_file)
+
+        return config_tuple
+
+
+    def update_args_with_config(args, config):
+        for key, value in config.items():
+            if not hasattr(args, key):
+                setattr(args, key, value)
+    
+    all_args = load_yaml('../config/config.yaml')
+    update_args_with_config(model_args, all_args.model)
+    update_args_with_config(data_args, all_args.data)
+    update_args_with_config(training_args, all_args.training)
+    
+    retrieval_args = SimpleNamespace(**all_args.retrieval)
     
     # Test sparse
     # org_dataset = load_from_disk(args.dataset_name)
@@ -428,17 +453,17 @@ if __name__ == "__main__":
 
     from transformers import AutoTokenizer
 
-    tokenizer = AutoTokenizer.from_pretrained(args.model_name_or_path, use_fast=False,)
+    tokenizer = AutoTokenizer.from_pretrained(model_args.model_name_or_path, use_fast=False,)
 
     retriever = SparseRetrieval(
         tokenize_fn=tokenizer.tokenize,
-        data_path=args.data_path,
-        context_path=args.context_path,
+        data_path=retrieval_args.data_path,
+        context_path=retrieval_args.context_path,
     )
 
     query = "대통령을 포함한 미국의 행정부 견제권을 갖는 국가 기관은?"
 
-    if args.use_faiss:
+    if retrieval_args.use_faiss:
 
         # test single query
         with timer("single query by faiss"):
@@ -446,6 +471,7 @@ if __name__ == "__main__":
 
         # test bulk
         with timer("bulk query by exhaustive search"):
+            retriever.get_sparse_embedding()
             df = retriever.retrieve_faiss(full_ds)
             df["correct"] = df["original_context"] == df["context"]
 
@@ -453,6 +479,7 @@ if __name__ == "__main__":
 
     else:
         with timer("bulk query by exhaustive search"):
+            retriever.get_sparse_embedding()
             df = retriever.retrieve(full_ds)
             df["correct"] = df["original_context"] == df["context"]
             print(

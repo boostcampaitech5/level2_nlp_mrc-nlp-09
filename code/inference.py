@@ -35,7 +35,8 @@ from transformers import (
 from utils_qa import check_no_error, postprocess_qa_predictions
 from types import SimpleNamespace
 import pandas as pd
-import ast
+import yaml
+from collections import namedtuple
 
 
 logger = logging.getLogger(__name__)
@@ -48,6 +49,27 @@ def main():
         (ModelArguments, DataTrainingArguments, TrainingArguments)
     )
     model_args, data_args, training_args = parser.parse_args_into_dataclasses()
+    
+    def load_yaml(yaml_path):
+        config_file = None
+        with open(yaml_path) as f:
+            config_file = yaml.load(f, Loader=yaml.FullLoader)
+        config = namedtuple("config", config_file.keys())
+        config_tuple = config(**config_file)
+
+        return config_tuple
+
+
+    def update_args_with_config(args, config):
+        for key, value in config.items():
+            if not hasattr(args, key):
+                setattr(args, key, value)
+    
+    all_args = load_yaml('../config/config.yaml')
+    update_args_with_config(model_args, all_args.model)
+    update_args_with_config(data_args, all_args.data)
+    update_args_with_config(training_args, all_args.training)
+    
     print(model_args.model_name_or_path)
 
     print(f"model is from {model_args.model_name_or_path}")

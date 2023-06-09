@@ -127,12 +127,6 @@ class TrainingArguments(TrainingArguments):
     """
     Arguments pertaining to what data we are going to input our model for training and eval.
     """
-    model_dir: str = field(
-        default=training_args.model_dir,
-        metadata={
-            "help": "The output directory where the model checkpoints will be written."
-        },
-    )
     output_dir: str = field(
         default=training_args.output_dir,
         metadata={

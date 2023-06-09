@@ -23,21 +23,8 @@ from types import SimpleNamespace
 import pandas as pd
 
 
-def load_yaml(yaml_path):
-    config_file = None
-    with open(yaml_path) as f:
-        config_file = yaml.load(f, Loader=yaml.FullLoader)
-    config = namedtuple("config", config_file.keys())
-    config_tuple = config(**config_file)
-
-    return config_tuple
-
-
-all_args = load_yaml('../config/config.yaml')
-wandb_args = SimpleNamespace(**all_args.wandb)
-
 logger = logging.getLogger(__name__)
-wandb.init(project=wandb_args.project_name, name=wandb_args.run_name)
+
 
 def main():
     # 가능한 arguments 들은 ./arguments.py 나 transformer package 안의 src/transformers/training_args.py 에서 확인 가능합니다.
@@ -47,6 +34,28 @@ def main():
         (ModelArguments, DataTrainingArguments, TrainingArguments)
     )
     model_args, data_args, training_args = parser.parse_args_into_dataclasses()
+    
+    def load_yaml(yaml_path):
+        config_file = None
+        with open(yaml_path) as f:
+            config_file = yaml.load(f, Loader=yaml.FullLoader)
+        config = namedtuple("config", config_file.keys())
+        config_tuple = config(**config_file)
+
+        return config_tuple
+
+
+    def update_args_with_config(args, config):
+        for key, value in config.items():
+            if not hasattr(args, key):
+                setattr(args, key, value)
+
+
+    all_args = load_yaml('../config/config.yaml')
+    update_args_with_config(model_args, all_args.model)
+    update_args_with_config(data_args, all_args.data)
+    update_args_with_config(training_args, all_args.training)
+    
     print(model_args.model_name_or_path)
 
     # [참고] argument를 manual하게 수정하고 싶은 경우에 아래와 같은 방식을 사용할 수 있습니다
@@ -55,6 +64,9 @@ def main():
     print(f"model is from {model_args.model_name_or_path}")
     print(f"data is from {data_args.train_dataset_name} and {data_args.eval_dataset_name}")
 
+    wandb_args = SimpleNamespace(**all_args.wandb)
+    wandb.init(project=wandb_args.project_name, name=wandb_args.run_name)
+    
     # logging 설정
     logging.basicConfig(
         format="%(asctime)s - %(levelname)s - %(name)s -    %(message)s",
@@ -309,7 +321,7 @@ def run_mrc(
             features=features,
             predictions=predictions,
             max_answer_length=data_args.max_answer_length,
-            output_dir=training_args.model_dir,
+            output_dir=training_args.output_dir,
         )
         # Metric을 구할 수 있도록 Format을 맞춰줍니다.
         formatted_predictions = [
@@ -369,7 +381,7 @@ def run_mrc(
         trainer.save_state()
 
         output_train_file = os.path.join(
-            training_args.model_dir, "train_results.txt")
+            training_args.output_dir, "train_results.txt")
 
         with open(output_train_file, "w") as writer:
             logger.info("***** Train results *****")
@@ -381,7 +393,7 @@ def run_mrc(
 
         # State 저장
         trainer.state.save_to_json(
-            os.path.join(training_args.model_dir, "trainer_state.json")
+            os.path.join(training_args.output_dir, "trainer_state.json")
         )
 
     # Evaluation
