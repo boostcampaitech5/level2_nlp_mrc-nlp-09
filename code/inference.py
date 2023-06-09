@@ -29,11 +29,14 @@ from transformers import (
     DataCollatorWithPadding,
     EvalPrediction,
     HfArgumentParser,
-    TrainingArguments,
+    # TrainingArguments,
     set_seed,
 )
 from utils_qa import check_no_error, postprocess_qa_predictions
 from types import SimpleNamespace
+import pandas as pd
+import yaml
+from collections import namedtuple
 
 from rank_bm25 import BM25Plus
 import pandas as pd
@@ -49,10 +52,31 @@ def main():
         (ModelArguments, DataTrainingArguments, TrainingArguments)
     )
     model_args, data_args, training_args = parser.parse_args_into_dataclasses()
+    
+    def load_yaml(yaml_path):
+        config_file = None
+        with open(yaml_path) as f:
+            config_file = yaml.load(f, Loader=yaml.FullLoader)
+        config = namedtuple("config", config_file.keys())
+        config_tuple = config(**config_file)
+
+        return config_tuple
+
+
+    def update_args_with_config(args, config):
+        for key, value in config.items():
+            if not hasattr(args, key):
+                setattr(args, key, value)
+    
+    all_args = load_yaml('../config/config.yaml')
+    update_args_with_config(model_args, all_args.model)
+    update_args_with_config(data_args, all_args.data)
+    update_args_with_config(training_args, all_args.training)
+    
     print(model_args.model_name_or_path)
 
     print(f"model is from {model_args.model_name_or_path}")
-    print(f"data is from {data_args.dataset_name}")
+    print(f"data is from {data_args.test_dataset_name}")
 
     # logging 설정
     logging.basicConfig(
@@ -67,7 +91,16 @@ def main():
     # 모델을 초기화하기 전에 난수를 고정합니다.
     set_seed(training_args.seed)
 
-    datasets = load_from_disk(data_args.dataset_name)
+    # datasets = load_from_disk(data_args.dataset_name)
+    if training_args.do_eval:
+        test_df = pd.read_csv(data_args.eval_dataset_name)
+    elif training_args.do_predict:
+        test_df = pd.read_csv(data_args.test_dataset_name)
+        
+    test_dataset = Dataset.from_pandas(test_df, preserve_index=False)
+    datasets = DatasetDict({
+        "validation": test_dataset,
+    })
     print(datasets)
 
     # AutoConfig를 이용하여 pretrained model 과 tokenizer를 불러옵니다.
