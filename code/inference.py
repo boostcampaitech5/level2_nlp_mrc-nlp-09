@@ -29,12 +29,18 @@ from transformers import (
     DataCollatorWithPadding,
     EvalPrediction,
     HfArgumentParser,
-    TrainingArguments,
+    # TrainingArguments,
     set_seed,
 )
 from utils_qa import check_no_error, postprocess_qa_predictions
 from types import SimpleNamespace
+import pandas as pd
+import yaml
+from collections import namedtuple
 
+from rank_bm25 import BM25Plus
+import pandas as pd
+from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
 
@@ -46,10 +52,31 @@ def main():
         (ModelArguments, DataTrainingArguments, TrainingArguments)
     )
     model_args, data_args, training_args = parser.parse_args_into_dataclasses()
+    
+    def load_yaml(yaml_path):
+        config_file = None
+        with open(yaml_path) as f:
+            config_file = yaml.load(f, Loader=yaml.FullLoader)
+        config = namedtuple("config", config_file.keys())
+        config_tuple = config(**config_file)
+
+        return config_tuple
+
+
+    def update_args_with_config(args, config):
+        for key, value in config.items():
+            if not hasattr(args, key):
+                setattr(args, key, value)
+    
+    all_args = load_yaml('../config/config.yaml')
+    update_args_with_config(model_args, all_args.model)
+    update_args_with_config(data_args, all_args.data)
+    update_args_with_config(training_args, all_args.training)
+    
     print(model_args.model_name_or_path)
 
     print(f"model is from {model_args.model_name_or_path}")
-    print(f"data is from {data_args.dataset_name}")
+    print(f"data is from {data_args.test_dataset_name}")
 
     # logging 설정
     logging.basicConfig(
@@ -64,7 +91,16 @@ def main():
     # 모델을 초기화하기 전에 난수를 고정합니다.
     set_seed(training_args.seed)
 
-    datasets = load_from_disk(data_args.dataset_name)
+    # datasets = load_from_disk(data_args.dataset_name)
+    if training_args.do_eval:
+        test_df = pd.read_csv(data_args.eval_dataset_name)
+    elif training_args.do_predict:
+        test_df = pd.read_csv(data_args.test_dataset_name)
+        
+    test_dataset = Dataset.from_pandas(test_df, preserve_index=False)
+    datasets = DatasetDict({
+        "validation": test_dataset,
+    })
     print(datasets)
 
     # AutoConfig를 이용하여 pretrained model 과 tokenizer를 불러옵니다.
@@ -87,14 +123,61 @@ def main():
     )
 
     # True일 경우 : run passage retrieval
-    if data_args.eval_retrieval:
+    if data_args.eval_retrieval and not data_args.use_bm25:
         datasets = run_sparse_retrieval(
             tokenizer.tokenize, datasets, training_args, data_args,
         )
+    elif data_args.eval_retrieval and data_args.use_bm25:
+        print("run_sparse_retrieval_bm25")
+        datasets = run_sparse_retrieval_bm25(
+            tokenizer.tokenize, datasets, training_args, data_args,
+        )
+        print("end_sparse_retrieval_bm25")
 
     # eval or predict mrc model
     if training_args.do_eval or training_args.do_predict:
-        run_mrc(data_args, training_args, model_args, datasets, tokenizer, model)
+        run_mrc(data_args, training_args, model_args,
+                datasets, tokenizer, model)
+
+
+def run_sparse_retrieval_bm25(
+    tokenize_fn: Callable[[str], List[str]],
+    datasets: DatasetDict,
+    training_args: TrainingArguments,
+    data_args: DataTrainingArguments,
+    data_path: str = "../data",
+    context_path: str = "wikipedia_documents.json",
+) -> DatasetDict:
+
+    print("read wiki")
+    wiki = pd.read_json(data_path+"/"+context_path)
+    wiki = wiki.T
+    # tokenized_wiki = [doc.split(" ") for doc in wiki["text"]]
+    print("tokenize wiki")
+    tokenized_wiki = [tokenize_fn(text) for text in tqdm(wiki["text"])]
+    print("init bm25")
+    bm25 = BM25Plus(tokenized_wiki)
+    print("finish init")
+
+    context_list = []
+
+    print(f"find topk {data_args.top_k_retrieval}")
+    for i in tqdm(range(len(datasets["validation"]))):
+        question = datasets["validation"][i]["question"]
+        # tokenized_question = question.split(" ")
+        tokenized_question = tokenize_fn(question)
+        topk = bm25.get_top_n(tokenized_question,
+                              wiki["text"], n=data_args.top_k_retrieval)
+        context = "\n\n".join(topk)
+        context_list.append(context)
+
+    test_data = load_from_disk("../data/test_dataset")
+    test_df = pd.DataFrame.from_dict(test_data["validation"])
+    test_df["context"] = context_list
+
+    datasets = DatasetDict({"validation": Dataset.from_pandas(test_df)})
+
+    return datasets
 
 
 def run_sparse_retrieval(
@@ -118,7 +201,8 @@ def run_sparse_retrieval(
             datasets["validation"], topk=data_args.top_k_retrieval
         )
     else:
-        df = retriever.retrieve(datasets["validation"], topk=data_args.top_k_retrieval)
+        df = retriever.retrieve(
+            datasets["validation"], topk=data_args.top_k_retrieval)
 
     # test data 에 대해선 정답이 없으므로 id question context 로만 데이터셋이 구성됩니다.
     if training_args.do_predict:
@@ -145,6 +229,7 @@ def run_sparse_retrieval(
                 "context": Value(dtype="string", id=None),
                 "id": Value(dtype="string", id=None),
                 "question": Value(dtype="string", id=None),
+                "original_context": Value(dtype="string", id=None),
             }
         )
     datasets = DatasetDict({"validation": Dataset.from_pandas(df, features=f)})
@@ -206,7 +291,8 @@ def run_mrc(
 
             # 하나의 example이 여러개의 span을 가질 수 있습니다.
             sample_index = sample_mapping[i]
-            tokenized_examples["example_id"].append(examples["id"][sample_index])
+            tokenized_examples["example_id"].append(
+                examples["id"][sample_index])
 
             # context의 일부가 아닌 offset_mapping을 None으로 설정하여 토큰 위치가 컨텍스트의 일부인지 여부를 쉽게 판별할 수 있습니다.
             tokenized_examples["offset_mapping"][i] = [
@@ -286,7 +372,7 @@ def run_mrc(
 
     logger.info("*** Evaluate ***")
 
-    #### eval dataset & eval example - predictions.json 생성됨
+    # eval dataset & eval example - predictions.json 생성됨
     if training_args.do_predict:
         predictions = trainer.predict(
             test_dataset=eval_dataset, test_examples=datasets["validation"]

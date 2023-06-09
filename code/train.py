@@ -3,7 +3,7 @@ import os
 import sys
 
 from arguments import DataTrainingArguments, ModelArguments, TrainingArguments
-from datasets import DatasetDict, load_from_disk
+from datasets import DatasetDict, load_from_disk, Dataset, DatasetDict
 import evaluate
 from trainer_qa import QuestionAnsweringTrainer
 from transformers import (
@@ -20,23 +20,11 @@ import wandb
 import yaml
 from collections import namedtuple
 from types import SimpleNamespace
+import pandas as pd
 
-
-def load_yaml(yaml_path):
-    config_file = None
-    with open(yaml_path) as f:
-        config_file = yaml.load(f, Loader=yaml.FullLoader)
-    config = namedtuple("config", config_file.keys())
-    config_tuple = config(**config_file)
-
-    return config_tuple
-
-
-all_args = load_yaml('../config/config.yaml')
-wandb_args = SimpleNamespace(**all_args.wandb)
 
 logger = logging.getLogger(__name__)
-wandb.init(project=wandb_args.project_name, name=wandb_args.run_name)
+
 
 def main():
     # 가능한 arguments 들은 ./arguments.py 나 transformer package 안의 src/transformers/training_args.py 에서 확인 가능합니다.
@@ -46,14 +34,39 @@ def main():
         (ModelArguments, DataTrainingArguments, TrainingArguments)
     )
     model_args, data_args, training_args = parser.parse_args_into_dataclasses()
+    
+    def load_yaml(yaml_path):
+        config_file = None
+        with open(yaml_path) as f:
+            config_file = yaml.load(f, Loader=yaml.FullLoader)
+        config = namedtuple("config", config_file.keys())
+        config_tuple = config(**config_file)
+
+        return config_tuple
+
+
+    def update_args_with_config(args, config):
+        for key, value in config.items():
+            if not hasattr(args, key):
+                setattr(args, key, value)
+
+
+    all_args = load_yaml('../config/config.yaml')
+    update_args_with_config(model_args, all_args.model)
+    update_args_with_config(data_args, all_args.data)
+    update_args_with_config(training_args, all_args.training)
+    
     print(model_args.model_name_or_path)
 
     # [참고] argument를 manual하게 수정하고 싶은 경우에 아래와 같은 방식을 사용할 수 있습니다
     # training_args.per_device_train_batch_size = 4
     # print(training_args.per_device_train_batch_size)
     print(f"model is from {model_args.model_name_or_path}")
-    print(f"data is from {data_args.dataset_name}")
+    print(f"data is from {data_args.train_dataset_name} and {data_args.eval_dataset_name}")
 
+    wandb_args = SimpleNamespace(**all_args.wandb)
+    wandb.init(project=wandb_args.project_name, name=wandb_args.run_name)
+    
     # logging 설정
     logging.basicConfig(
         format="%(asctime)s - %(levelname)s - %(name)s -    %(message)s",
@@ -68,7 +81,15 @@ def main():
     ### QUESTION: 왜 utils_qa.py 내의 set_seed를 사용하지 않았을까? ###
     set_seed(training_args.seed)
 
-    datasets = load_from_disk(data_args.dataset_name)
+    # datasets = load_from_disk(data_args.dataset_name)
+    train_df = pd.read_csv(data_args.train_dataset_name)
+    eval_df = pd.read_csv(data_args.eval_dataset_name)
+    train_dataset = Dataset.from_pandas(train_df, preserve_index=False)
+    eval_dataset = Dataset.from_pandas(eval_df, preserve_index=False)
+    datasets = DatasetDict({
+        "train": train_dataset,
+        "validation": eval_dataset
+    })
     print(datasets)
 
     # AutoConfig를 이용하여 pretrained model 과 tokenizer를 불러옵니다.
@@ -173,6 +194,7 @@ def run_mrc(
             # 하나의 example이 여러개의 span을 가질 수 있습니다.
             sample_index = sample_mapping[i]
             answers = examples[answer_column_name][sample_index]
+            answers = eval(answers)
 
             # answer가 없을 경우 cls_index를 answer로 설정합니다(== example에서 정답이 없는 경우 존재할 수 있음).
             if len(answers["answer_start"]) == 0:
@@ -310,7 +332,7 @@ def run_mrc(
 
         elif training_args.do_eval:
             references = [
-                {"id": ex["id"], "answers": ex[answer_column_name]}
+                {"id": ex["id"], "answers": eval(ex[answer_column_name])}
                 for ex in datasets["validation"]
             ]
             return EvalPrediction(

@@ -55,9 +55,17 @@ class DataTrainingArguments:
     Arguments pertaining to what data we are going to input our model for training and eval.
     """
 
-    dataset_name: Optional[str] = field(
-        default=data_args.dataset_name,
-        metadata={"help": "The name of the dataset to use."},
+    train_dataset_name: Optional[str] = field(
+        default=data_args.train_dataset_name,
+        metadata={"help": "The name of the train dataset to use."},
+    )
+    eval_dataset_name: Optional[str] = field(
+        default=data_args.eval_dataset_name,
+        metadata={"help": "The name of the validation dataset to use."},
+    )
+    test_dataset_name: Optional[str] = field(
+        default=data_args.test_dataset_name,
+        metadata={"help": "The name of the test dataset to use."},
     )
     overwrite_cache: bool = field(
         default=data_args.overwrite_cache,
@@ -101,7 +109,8 @@ class DataTrainingArguments:
             "help": "Whether to run passage retrieval using sparse embedding."},
     )
     num_clusters: int = field(
-        default=data_args.num_clusters, metadata={"help": "Define how many clusters to use for faiss."}
+        default=data_args.num_clusters, metadata={
+            "help": "Define how many clusters to use for faiss."}
     )
     top_k_retrieval: int = field(
         default=data_args.top_k_retrieval,
@@ -110,7 +119,11 @@ class DataTrainingArguments:
         },
     )
     use_faiss: bool = field(
-        default=data_args.use_faiss, metadata={"help": "Whether to build with faiss"}
+        default=data_args.use_faiss, metadata={
+            "help": "Whether to build with faiss"}
+    )
+    use_bm25: bool = field(
+        default=data_args.use_bm25, metadata={"help": "Whether to use bm25"}
     )
 
 
@@ -119,11 +132,10 @@ class TrainingArguments(TrainingArguments):
     """
     Arguments pertaining to what data we are going to input our model for training and eval.
     """
-
     output_dir: str = field(
         default=training_args.output_dir,
         metadata={
-            "help": "The output directory where the model predictions and checkpoints will be written."
+            "help": "The output directory where the model predictions will be written."
         },
     )
     overwrite_output_dir: bool = field(
@@ -145,6 +157,12 @@ class TrainingArguments(TrainingArguments):
         default=training_args.do_eval,
         metadata={
             "help": "Whether to run eval on the dev set."
+        },
+    )
+    do_predict: bool = field(
+        default=training_args.do_predict,
+        metadata={
+            "help": "Whether to run on the test set."
         },
     )
     per_device_train_batch_size: int = field(
@@ -219,8 +237,10 @@ class TrainingArguments(TrainingArguments):
             "help": "Whether or not to load the best model found during training at the end of training."},
     )
     metric_for_best_model: Optional[str] = field(
-        default=training_args.metric_for_best_model, metadata={"help": "The metric to use to compare two different models."}
+        default=training_args.metric_for_best_model, metadata={
+            "help": "The metric to use to compare two different models."}
     )
     greater_is_better: Optional[bool] = field(
-        default=training_args.greater_is_better, metadata={"help": "Whether the `metric_for_best_model` should be maximized or not."}
+        default=training_args.greater_is_better, metadata={
+            "help": "Whether the `metric_for_best_model` should be maximized or not."}
     )
