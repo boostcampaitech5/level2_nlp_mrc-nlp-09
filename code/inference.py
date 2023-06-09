@@ -35,6 +35,9 @@ from transformers import (
 from utils_qa import check_no_error, postprocess_qa_predictions
 from types import SimpleNamespace
 
+from rank_bm25 import BM25Plus
+import pandas as pd
+from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
 
@@ -87,15 +90,61 @@ def main():
     )
 
     # True일 경우 : run passage retrieval
-    if data_args.eval_retrieval:
+    if data_args.eval_retrieval and not data_args.use_bm25:
         datasets = run_sparse_retrieval(
             tokenizer.tokenize, datasets, training_args, data_args,
         )
+    elif data_args.eval_retrieval and data_args.use_bm25:
+        print("run_sparse_retrieval_bm25")
+        datasets = run_sparse_retrieval_bm25(
+            tokenizer.tokenize, datasets, training_args, data_args,
+        )
+        print("end_sparse_retrieval_bm25")
 
     # eval or predict mrc model
     if training_args.do_eval or training_args.do_predict:
         run_mrc(data_args, training_args, model_args,
                 datasets, tokenizer, model)
+
+
+def run_sparse_retrieval_bm25(
+    tokenize_fn: Callable[[str], List[str]],
+    datasets: DatasetDict,
+    training_args: TrainingArguments,
+    data_args: DataTrainingArguments,
+    data_path: str = "../data",
+    context_path: str = "wikipedia_documents.json",
+) -> DatasetDict:
+
+    print("read wiki")
+    wiki = pd.read_json(data_path+"/"+context_path)
+    wiki = wiki.T
+    # tokenized_wiki = [doc.split(" ") for doc in wiki["text"]]
+    print("tokenize wiki")
+    tokenized_wiki = [tokenize_fn(text) for text in tqdm(wiki["text"])]
+    print("init bm25")
+    bm25 = BM25Plus(tokenized_wiki)
+    print("finish init")
+
+    context_list = []
+
+    print(f"find topk {data_args.top_k_retrieval}")
+    for i in tqdm(range(len(datasets["validation"]))):
+        question = datasets["validation"][i]["question"]
+        # tokenized_question = question.split(" ")
+        tokenized_question = tokenize_fn(question)
+        topk = bm25.get_top_n(tokenized_question,
+                              wiki["text"], n=data_args.top_k_retrieval)
+        context = "\n\n".join(topk)
+        context_list.append(context)
+
+    test_data = load_from_disk("../data/test_dataset")
+    test_df = pd.DataFrame.from_dict(test_data["validation"])
+    test_df["context"] = context_list
+
+    datasets = DatasetDict({"validation": Dataset.from_pandas(test_df)})
+
+    return datasets
 
 
 def run_sparse_retrieval(

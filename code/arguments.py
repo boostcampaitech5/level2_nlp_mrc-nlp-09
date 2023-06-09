@@ -101,7 +101,8 @@ class DataTrainingArguments:
             "help": "Whether to run passage retrieval using sparse embedding."},
     )
     num_clusters: int = field(
-        default=data_args.num_clusters, metadata={"help": "Define how many clusters to use for faiss."}
+        default=data_args.num_clusters, metadata={
+            "help": "Define how many clusters to use for faiss."}
     )
     top_k_retrieval: int = field(
         default=data_args.top_k_retrieval,
@@ -110,7 +111,11 @@ class DataTrainingArguments:
         },
     )
     use_faiss: bool = field(
-        default=data_args.use_faiss, metadata={"help": "Whether to build with faiss"}
+        default=data_args.use_faiss, metadata={
+            "help": "Whether to build with faiss"}
+    )
+    use_bm25: bool = field(
+        default=data_args.use_bm25, metadata={"help": "Whether to use bm25"}
     )
 
 
@@ -219,8 +224,10 @@ class TrainingArguments(TrainingArguments):
             "help": "Whether or not to load the best model found during training at the end of training."},
     )
     metric_for_best_model: Optional[str] = field(
-        default=training_args.metric_for_best_model, metadata={"help": "The metric to use to compare two different models."}
+        default=training_args.metric_for_best_model, metadata={
+            "help": "The metric to use to compare two different models."}
     )
     greater_is_better: Optional[bool] = field(
-        default=training_args.greater_is_better, metadata={"help": "Whether the `metric_for_best_model` should be maximized or not."}
+        default=training_args.greater_is_better, metadata={
+            "help": "Whether the `metric_for_best_model` should be maximized or not."}
     )
