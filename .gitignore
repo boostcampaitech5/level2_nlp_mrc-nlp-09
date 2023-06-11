@@ -234,3 +234,4 @@ data/test_dataset/validation/*
 models/*
 outputs/*
 config/*
+data/
