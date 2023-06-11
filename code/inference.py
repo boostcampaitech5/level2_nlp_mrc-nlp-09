@@ -10,7 +10,7 @@ import sys
 from typing import Callable, Dict, List, Tuple
 
 import numpy as np
-from arguments import DataTrainingArguments, ModelArguments, TrainingArguments
+from arguments import DataTrainingArguments, ModelArguments, CustomTrainingArguments
 from datasets import (
     Dataset,
     DatasetDict,
@@ -29,7 +29,7 @@ from transformers import (
     DataCollatorWithPadding,
     EvalPrediction,
     HfArgumentParser,
-    # TrainingArguments,
+    # CustomTrainingArguments,
     set_seed,
 )
 from utils_qa import check_no_error, postprocess_qa_predictions
@@ -49,7 +49,7 @@ def main():
     # 가능한 arguments 들은 ./arguments.py 나 transformer package 안의 src/transformers/training_args.py 에서 확인 가능합니다.
     # --help flag 를 실행시켜서 확인할 수 도 있습니다.
     parser = HfArgumentParser(
-        (ModelArguments, DataTrainingArguments, TrainingArguments)
+        (ModelArguments, DataTrainingArguments, CustomTrainingArguments)
     )
     model_args, data_args, training_args = parser.parse_args_into_dataclasses()
     
@@ -72,11 +72,13 @@ def main():
     update_args_with_config(model_args, all_args.model)
     update_args_with_config(data_args, all_args.data)
     update_args_with_config(training_args, all_args.training)
-    
-    print(model_args.model_name_or_path)
 
     print(f"model is from {model_args.model_name_or_path}")
     print(f"data is from {data_args.test_dataset_name}")
+    
+    print(f"do_train: {training_args.do_train}")
+    print(f"do_eval: {training_args.do_eval}")
+    print(f"do_predict: {training_args.do_predict}")
 
     # logging 설정
     logging.basicConfig(
@@ -92,10 +94,10 @@ def main():
     set_seed(training_args.seed)
 
     # datasets = load_from_disk(data_args.dataset_name)
-    if training_args.do_eval:
-        test_df = pd.read_csv(data_args.eval_dataset_name)
-    elif training_args.do_predict:
+    if training_args.do_predict:
         test_df = pd.read_csv(data_args.test_dataset_name)
+    elif training_args.do_eval:
+        test_df = pd.read_csv(data_args.eval_dataset_name)
         
     test_dataset = Dataset.from_pandas(test_df, preserve_index=False)
     datasets = DatasetDict({
@@ -108,17 +110,17 @@ def main():
     config = AutoConfig.from_pretrained(
         model_args.config_name
         if model_args.config_name
-        else model_args.model_name_or_path,
+        else training_args.output_dir,
     )
     tokenizer = AutoTokenizer.from_pretrained(
         model_args.tokenizer_name
         if model_args.tokenizer_name
-        else model_args.model_name_or_path,
+        else training_args.output_dir,
         use_fast=True,
     )
     model = AutoModelForQuestionAnswering.from_pretrained(
-        model_args.model_name_or_path,
-        from_tf=bool(".ckpt" in model_args.model_name_or_path),
+        training_args.output_dir,
+        from_tf=bool(".ckpt" in training_args.output_dir),
         config=config,
     )
 
@@ -143,7 +145,7 @@ def main():
 def run_sparse_retrieval_bm25(
     tokenize_fn: Callable[[str], List[str]],
     datasets: DatasetDict,
-    training_args: TrainingArguments,
+    training_args: CustomTrainingArguments,
     data_args: DataTrainingArguments,
     data_path: str = "../data",
     context_path: str = "wikipedia_documents.json",
@@ -166,8 +168,11 @@ def run_sparse_retrieval_bm25(
         question = datasets["validation"][i]["question"]
         # tokenized_question = question.split(" ")
         tokenized_question = tokenize_fn(question)
-        topk = bm25.get_top_n(tokenized_question,
-                              wiki["text"], n=data_args.top_k_retrieval)
+        topk = bm25.get_top_n(
+            tokenized_question,
+            wiki["text"], 
+            n=data_args.top_k_retrieval
+            )
         context = "\n\n".join(topk)
         context_list.append(context)
 
@@ -183,7 +188,7 @@ def run_sparse_retrieval_bm25(
 def run_sparse_retrieval(
     tokenize_fn: Callable[[str], List[str]],
     datasets: DatasetDict,
-    training_args: TrainingArguments,
+    training_args: CustomTrainingArguments,
     data_args: DataTrainingArguments,
     data_path: str = "../data",
     context_path: str = "wikipedia_documents.json",
@@ -238,7 +243,7 @@ def run_sparse_retrieval(
 
 def run_mrc(
     data_args: DataTrainingArguments,
-    training_args: TrainingArguments,
+    training_args: CustomTrainingArguments,
     model_args: ModelArguments,
     datasets: DatasetDict,
     tokenizer,
@@ -324,7 +329,7 @@ def run_mrc(
         examples,
         features,
         predictions: Tuple[np.ndarray, np.ndarray],
-        training_args: TrainingArguments,
+        training_args: CustomTrainingArguments,
     ) -> EvalPrediction:
         # Post-processing: start logits과 end logits을 original context의 정답과 match시킵니다.
         predictions = postprocess_qa_predictions(
@@ -383,7 +388,7 @@ def run_mrc(
             "No metric can be presented because there is no correct answer given. Job done!"
         )
 
-    if training_args.do_eval:
+    elif training_args.do_eval:
         metrics = trainer.evaluate()
         metrics["eval_samples"] = len(eval_dataset)
 

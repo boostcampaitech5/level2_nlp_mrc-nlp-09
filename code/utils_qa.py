@@ -25,7 +25,7 @@ from typing import Any, Optional, Tuple
 
 import numpy as np
 import torch
-from arguments import DataTrainingArguments, ModelArguments, TrainingArguments
+from arguments import DataTrainingArguments, ModelArguments, CustomTrainingArguments
 from datasets import DatasetDict
 from tqdm.auto import tqdm
 from transformers import PreTrainedTokenizerFast, is_torch_available
@@ -313,7 +313,7 @@ def postprocess_qa_predictions(
 
 def check_no_error(
     data_args: DataTrainingArguments,
-    training_args: TrainingArguments,
+    training_args: CustomTrainingArguments,
     datasets: DatasetDict,
     tokenizer,
 ) -> Tuple[Any, int]:
