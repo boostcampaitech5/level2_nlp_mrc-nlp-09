@@ -429,6 +429,7 @@ if __name__ == "__main__":
     update_args_with_config(model_args, all_args.model)
     update_args_with_config(data_args, all_args.data)
     update_args_with_config(training_args, all_args.training)
+    training_args.do_eval = all_args.training.do_eval
     
     retrieval_args = SimpleNamespace(**all_args.retrieval)
     

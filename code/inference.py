@@ -72,6 +72,7 @@ def main():
     update_args_with_config(model_args, all_args.model)
     update_args_with_config(data_args, all_args.data)
     update_args_with_config(training_args, all_args.training)
+    training_args.do_eval = all_args.training.do_eval
 
     print(f"model is from {model_args.model_name_or_path}")
     print(f"data is from {data_args.test_dataset_name}")
