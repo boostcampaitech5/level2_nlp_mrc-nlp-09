@@ -200,7 +200,7 @@ class SparseRetrieval:
                 if "context" in example.keys() and "answers" in example.keys():
                     # validation 데이터를 사용하면 ground_truth context와 answer도 반환합니다.
                     tmp["original_context"] = example["context"]
-                    tmp["answers"] = example["answers"]
+                    tmp["answers"] = eval(example["answers"])
                 total.append(tmp)
 
             cqas = pd.DataFrame(total)
@@ -328,7 +328,7 @@ class SparseRetrieval:
                 if "context" in example.keys() and "answers" in example.keys():
                     # validation 데이터를 사용하면 ground_truth context와 answer도 반환합니다.
                     tmp["original_context"] = example["context"]
-                    tmp["answers"] = example["answers"]
+                    tmp["answers"] = eval(example["answers"])
                 total.append(tmp)
 
             return pd.DataFrame(total)
@@ -429,6 +429,7 @@ if __name__ == "__main__":
     update_args_with_config(model_args, all_args.model)
     update_args_with_config(data_args, all_args.data)
     update_args_with_config(training_args, all_args.training)
+    training_args.do_eval = all_args.training.do_eval
     
     retrieval_args = SimpleNamespace(**all_args.retrieval)
     

@@ -2,7 +2,7 @@ import logging
 import os
 import sys
 
-from arguments import DataTrainingArguments, ModelArguments, TrainingArguments
+from arguments import DataTrainingArguments, ModelArguments, CustomTrainingArguments
 from datasets import DatasetDict, load_from_disk, Dataset, DatasetDict
 import evaluate
 from trainer_qa import QuestionAnsweringTrainer
@@ -21,6 +21,7 @@ import yaml
 from collections import namedtuple
 from types import SimpleNamespace
 import pandas as pd
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 
 logger = logging.getLogger(__name__)
@@ -31,7 +32,7 @@ def main():
     # --help flag 를 실행시켜서 확인할 수 도 있습니다.
 
     parser = HfArgumentParser(
-        (ModelArguments, DataTrainingArguments, TrainingArguments)
+        (ModelArguments, DataTrainingArguments, CustomTrainingArguments)
     )
     model_args, data_args, training_args = parser.parse_args_into_dataclasses()
     
@@ -55,14 +56,17 @@ def main():
     update_args_with_config(model_args, all_args.model)
     update_args_with_config(data_args, all_args.data)
     update_args_with_config(training_args, all_args.training)
-    
-    print(model_args.model_name_or_path)
+    training_args.do_eval = all_args.training.do_eval
 
     # [참고] argument를 manual하게 수정하고 싶은 경우에 아래와 같은 방식을 사용할 수 있습니다
     # training_args.per_device_train_batch_size = 4
     # print(training_args.per_device_train_batch_size)
     print(f"model is from {model_args.model_name_or_path}")
     print(f"data is from {data_args.train_dataset_name} and {data_args.eval_dataset_name}")
+    
+    print(f"do_train: {training_args.do_train}")
+    print(f"do_eval: {training_args.do_eval}")
+    print(f"do_predict: {training_args.do_predict}")
 
     wandb_args = SimpleNamespace(**all_args.wandb)
     wandb.init(project=wandb_args.project_name, name=wandb_args.run_name)
@@ -130,7 +134,7 @@ def main():
 
 def run_mrc(
     data_args: DataTrainingArguments,
-    training_args: TrainingArguments,
+    training_args: CustomTrainingArguments,
     model_args: ModelArguments,
     datasets: DatasetDict,
     tokenizer,
