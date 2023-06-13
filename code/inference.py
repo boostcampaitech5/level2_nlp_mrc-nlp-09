@@ -38,6 +38,8 @@ from types import SimpleNamespace
 from rank_bm25 import BM25Plus
 import pandas as pd
 from tqdm import tqdm
+import pyarrow as pa
+import pyarrow.dataset as ds
 
 logger = logging.getLogger(__name__)
 
@@ -105,6 +107,46 @@ def main():
     if training_args.do_eval or training_args.do_predict:
         run_mrc(data_args, training_args, model_args,
                 datasets, tokenizer, model)
+
+
+def run_sparse_retrieval_bm25_for_save(
+    tokenize_fn: Callable[[str], List[str]],
+    datasets: DatasetDict,
+    training_args: TrainingArguments,
+    data_args: DataTrainingArguments,
+    data_path: str = "../data",
+    context_path: str = "wikipedia_documents.json",
+) -> DatasetDict:
+
+    print("read wiki")
+    wiki = pd.read_json(data_path+"/"+context_path)
+    wiki = wiki.T
+    # tokenized_wiki = [doc.split(" ") for doc in wiki["text"]]
+    print("tokenize wiki")
+    tokenized_wiki = [tokenize_fn(text) for text in tqdm(wiki["text"])]
+    print("init bm25")
+    bm25 = BM25Plus(tokenized_wiki)
+    print("finish init")
+
+    context_list = []
+
+    print(f"find topk {data_args.top_k_retrieval}")
+    for i in tqdm(range(len(datasets["validation"]))):
+        question = datasets["validation"][i]["question"]
+        # tokenized_question = question.split(" ")
+        tokenized_question = tokenize_fn(question)
+        topk = bm25.get_top_n(tokenized_question,
+                              wiki["text"], n=data_args.top_k_retrieval)
+        context = "\n\n".join(topk)
+        context_list.append(context)
+
+    train_data = load_from_disk("../data/train_dataset")
+    train_df = pd.DataFrame.from_dict(train_data["validation"])
+    train_df["context"] = context_list
+    train_df.to_csv("new_val.csv", encoding="utf-8-sig")
+    datasets = DatasetDict({"validation": Dataset.from_pandas(train_df)})
+
+    return datasets
 
 
 def run_sparse_retrieval_bm25(
@@ -240,7 +282,8 @@ def run_mrc(
             stride=data_args.doc_stride,
             return_overflowing_tokens=True,
             return_offsets_mapping=True,
-            # return_token_type_ids=False, # roberta모델을 사용할 경우 False, bert를 사용할 경우 True로 표기해야합니다.
+            # roberta모델을 사용할 경우 False, bert를 사용할 경우 True로 표기해야합니다.
+            return_token_type_ids=False,
             padding="max_length" if data_args.pad_to_max_length else False,
         )
 
