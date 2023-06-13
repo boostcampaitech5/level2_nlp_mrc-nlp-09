@@ -24,9 +24,12 @@ import pandas as pd
 
 
 logger = logging.getLogger(__name__)
-
+eval_dataframe=None
+df_from_valid=None
 
 def main():
+    global df_from_valid
+    global eval_dataframe
     # 가능한 arguments 들은 ./arguments.py 나 transformer package 안의 src/transformers/training_args.py 에서 확인 가능합니다.
     # --help flag 를 실행시켜서 확인할 수 도 있습니다.
 
@@ -84,6 +87,8 @@ def main():
     # datasets = load_from_disk(data_args.dataset_name)
     train_df = pd.read_csv(data_args.train_dataset_name)
     eval_df = pd.read_csv(data_args.eval_dataset_name)
+    eval_dataframe = eval_df
+    df_from_valid = pd.DataFrame(columns=eval_df.columns)
     train_dataset = Dataset.from_pandas(train_df, preserve_index=False)
     eval_dataset = Dataset.from_pandas(eval_df, preserve_index=False)
     datasets = DatasetDict({
@@ -135,8 +140,12 @@ def run_mrc(
     datasets: DatasetDict,
     tokenizer,
     model,
+    # eval_dataframe,
+    # df_from_valid,
 ) -> None:
-
+    # global df_from_valid
+    # global eval_dataframe
+    # print("df_valid:",df_from_valid)
     # dataset을 전처리합니다.
     # training과 evaluation에서 사용되는 전처리는 아주 조금 다른 형태를 가집니다.
     if training_args.do_train:
@@ -194,6 +203,7 @@ def run_mrc(
             # 하나의 example이 여러개의 span을 가질 수 있습니다.
             sample_index = sample_mapping[i]
             answers = examples[answer_column_name][sample_index]
+            # print("answer :",answers)
             answers = eval(answers)
 
             # answer가 없을 경우 cls_index를 answer로 설정합니다(== example에서 정답이 없는 경우 존재할 수 있음).
@@ -341,12 +351,36 @@ def run_mrc(
 
     metric = evaluate.load("squad")
 
+
+    
     def compute_metrics(p: EvalPrediction):
+        global df_from_valid
+        global eval_dataframe
+        # print(df_from_valid)
+        # print("p : ", p)
+        # print("p.predictions:",p.predictions)
+        # print("p.label_ids : ", p.label_ids)
         eval_exact_match = metric.compute(
             predictions=p.predictions, references=p.label_ids)['exact_match']
         eval_f1 = metric.compute(
             predictions=p.predictions, references=p.label_ids)['f1']
         # return metric.compute(predictions=p.predictions, references=p.label_ids)
+
+        # save incorrect prediction
+        index_list =[]
+        # print("plabel[0]:",p.label_ids[0])
+        for i, row_dict in enumerate(p.predictions):
+          # print("row_dict[0]:",row_dict)
+          if row_dict['prediction_text'] != p.label_ids[i]['answers']['text'][0]:
+            index_list.append(i)
+        print("predict : ", len(index_list))
+        new_eval_df=eval_dataframe.iloc[index_list]
+        # print(new_eval_df)
+        # df_from_valid=pd.concat([df_from_valid, new_eval_df])
+        # # print(df_from_valid)
+        # df_from_valid=df_from_valid.drop_duplicates()
+        new_eval_df.to_csv("/opt/ml/level2_nlp_mrc-nlp-09/data/csv/retrain.csv",mode = 'w', index=False)
+        print("length:",len(df_from_valid))
         return {"eval_exact_match": eval_exact_match, "eval_f1": eval_f1}
 
     # Trainer 초기화
