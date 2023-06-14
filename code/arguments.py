@@ -237,10 +237,19 @@ class CustomTrainingArguments(TrainingArguments):
             "help": "Whether or not to load the best model found during training at the end of training."},
     )
     metric_for_best_model: Optional[str] = field(
-        default=training_args.metric_for_best_model, metadata={
+        default=training_args.metric_for_best_model, 
+        metadata={
             "help": "The metric to use to compare two different models."}
     )
     greater_is_better: Optional[bool] = field(
-        default=training_args.greater_is_better, metadata={
+        default=training_args.greater_is_better, 
+        metadata={
             "help": "Whether the `metric_for_best_model` should be maximized or not."}
     )
+    return_token_type_ids: Optional[bool] = field(
+        default=training_args.return_token_type_ids, 
+        metadata={
+            "help": "roberta - false, bert - true"
+        }
+    )
+    

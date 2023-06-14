@@ -21,7 +21,7 @@ import yaml
 from collections import namedtuple
 from types import SimpleNamespace
 import pandas as pd
-os.environ["TOKENIZERS_PARALLELISM"] = "false"
+# os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 
 logger = logging.getLogger(__name__)
@@ -128,8 +128,7 @@ def main():
 
     # do_train mrc model 혹은 do_eval mrc model
     if training_args.do_train or training_args.do_eval:
-        run_mrc(data_args, training_args, model_args,
-                datasets, tokenizer, model)
+        run_mrc(data_args, training_args, model_args, datasets, tokenizer, model)
 
 
 def run_mrc(
@@ -174,7 +173,7 @@ def run_mrc(
             stride=data_args.doc_stride,
             return_overflowing_tokens=True,
             return_offsets_mapping=True,
-            # return_token_type_ids=False, # roberta모델을 사용할 경우 False, bert를 사용할 경우 True로 표기해야합니다.
+            return_token_type_ids=training_args.return_token_type_ids, # roberta모델을 사용할 경우 False, bert를 사용할 경우 True로 표기해야합니다.
             padding="max_length" if data_args.pad_to_max_length else False,
         )
 
