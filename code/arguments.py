@@ -128,7 +128,7 @@ class DataTrainingArguments:
 
 
 @dataclass
-class TrainingArguments(TrainingArguments):
+class CustomTrainingArguments(TrainingArguments):
     """
     Arguments pertaining to what data we are going to input our model for training and eval.
     """
