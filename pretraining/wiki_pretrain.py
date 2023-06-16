@@ -10,6 +10,7 @@ from transformers import Trainer, TrainingArguments
 from transformers import set_seed
 from sklearn.metrics import accuracy_score, f1_score
 from sklearn.model_selection import train_test_split
+from pathlib import Path
 
 
 def main():
@@ -21,9 +22,11 @@ def main():
     model_name = "klue/roberta-large"
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     model = RobertaForMaskedLM.from_pretrained(model_name)
+    # vocab = tokenizer.vocab
+    # print("[MASK] Token ID:", vocab['[MASK]'])
 
-    def json_to_datasets(data_path, output_path, train_path, eval_path):
-        with open(data_path, 'r', encoding='utf-8') as file:
+    def json_to_datasets(wiki_path, total_path, train_path, eval_path):
+        with open(wiki_path, 'r', encoding='utf-8') as file:
             data = json.load(file)
         print("[Extracting Texts from JSON Documents]")
         texts = [data[key]['text'] for key in tqdm(data)]
@@ -45,9 +48,9 @@ def main():
                             lines.append(line.strip())
 
         # lines를 텍스트 파일로 저장
-        with open(output_path, 'w', encoding='utf-8') as file:
+        with open(total_path, 'w', encoding='utf-8') as file:
             file.write('\n'.join(lines))
-
+            
         train_lines, eval_lines = train_test_split(lines, test_size=0.1, random_state=42)
         with open(train_path, 'w', encoding='utf-8') as file:
             file.write('\n'.join(train_lines))
@@ -59,12 +62,17 @@ def main():
         
         return train_dataset, eval_dataset
 
-    train_dataset, eval_dataset = json_to_datasets(
-        '../data/wikipedia_documents.json', 
-        '../data/lines.txt',
-        '../data/train_lines.txt',
-        '../data/eval_lines.txt'
-        )
+    wiki_path = '../data/wikipedia_documents.json'
+    total_path = '../data/lines.txt'
+    train_path = '../data/train_lines.txt'
+    eval_path = '../data/eval_lines.txt'
+
+    if not Path(train_path).is_file() or not Path(eval_path).is_file():
+        train_dataset, eval_dataset = json_to_datasets(wiki_path, total_path, train_path, eval_path)
+    else:
+        train_dataset = LineByLineTextDataset(tokenizer, file_path=train_path, block_size=384)
+        eval_dataset = LineByLineTextDataset(tokenizer, file_path=eval_path, block_size=384)
+        eval_dataset_for_check = eval_dataset[:256]
 
     # 데이터 콜레이터 생성
     data_collator = DataCollatorForLanguageModeling(
@@ -82,36 +90,87 @@ def main():
         per_device_eval_batch_size=16,  # 배치 크기
         save_total_limit=2,  # 저장할 체크포인트의 최대 개수
         prediction_loss_only=False,  # MLM 손실 함수만 사용
-        learning_rate=1e-4,  # 학습률
+        learning_rate=5e-5,  # 학습률
         logging_strategy='steps',
         logging_steps=100,
-        save_steps=5000,
-        eval_steps=5000,
+        save_steps=1000,
+        eval_steps=1000,
         save_strategy="steps",
         evaluation_strategy="steps",
         load_best_model_at_end=True,
-        metric_for_best_model="accuracy",
+        metric_for_best_model="masked_accuracy",
         report_to="wandb",
         greater_is_better=True,
         seed=42,
         warmup_steps=5000,
+        # eval_accumulation_steps=4,
+    )
+
+    training_args_for_check = TrainingArguments(
+        output_dir=f"../pretrained_models/{model_name.replace('/', '_').replace('-', '_')}",  # 저장할 디렉토리 경로
+        overwrite_output_dir=True,  # 기존 결과 디렉토리를 덮어쓸지 여부
+        num_train_epochs=5,  # pretraining epoch 수
+        per_device_train_batch_size=16,  # 배치 크기
+        per_device_eval_batch_size=16,  # 배치 크기
+        save_total_limit=2,  # 저장할 체크포인트의 최대 개수
+        prediction_loss_only=False,  # MLM 손실 함수만 사용
+        learning_rate=5e-5,  # 학습률
+        logging_strategy='steps',
+        logging_steps=1,
+        save_steps=300,
+        eval_steps=3,
+        save_strategy="steps",
+        evaluation_strategy="steps",
+        load_best_model_at_end=True,
+        metric_for_best_model="masked_accuracy",
+        report_to="wandb",
+        greater_is_better=True,
+        seed=42,
+        warmup_steps=5000,
+        # eval_accumulation_steps=4,
     )
 
     wandb.config.update(training_args)
 
     def compute_metrics(pred):
         labels = pred.label_ids
-        preds = torch.argmax(torch.tensor(pred.predictions), dim=-1).cpu().numpy()
-        # print(type(labels))
-        # print(labels.shape)
-        # print(type(preds))
-        # print(preds.shape)
-        acc = accuracy_score(labels.flatten(), preds.flatten())
-        f1 = f1_score(labels.flatten(), preds.flatten(), average='weighted')
+        preds = pred.predictions[0]
+        masked_indices = (labels != -100)  # 마스킹된 토큰의 인덱스
+        masked_labels = labels[masked_indices]
+        masked_preds = preds[masked_indices]
+        masked_accuracy = (masked_labels == masked_preds).mean()
+        
         return {
-            'accuracy': acc,
-            'f1': f1,
+            'masked_accuracy': masked_accuracy,
         }
+    
+    def compute_metrics_for_check(pred):
+        labels = pred.label_ids
+        print("labels:", labels)
+        print("labels shape:", labels.shape)
+        preds = pred.predictions[0]
+        print("preds:", preds)
+        print("preds shape:", preds.shape)
+        masked_indices = (labels != -100)  # 마스킹된 토큰의 인덱스
+        print("Total masking in eval:", sum(masked_indices))
+        masked_labels = labels[masked_indices]
+        print("All masked labels:", masked_labels)
+        print("# of masked labels:", len(masked_labels[masked_labels.nonzero()]))
+        masked_preds = preds[masked_indices]
+        print("All masked preds:", masked_preds)
+        print("# of masked preds:", len(masked_preds[masked_preds.nonzero()]))
+        # masked_pred_ids = masked_preds.argmax(-1)
+        # print("masked_pred_ids:", masked_pred_ids)
+        masked_accuracy = (masked_labels == masked_preds).mean()
+        print("masked_accuracy:", masked_accuracy)
+        
+        return {
+            'masked_accuracy': masked_accuracy,
+        }
+
+    def preprocess_logits_for_metrics(logits, labels):
+        pred_ids = torch.argmax(logits, dim=-1)
+        return pred_ids, labels
 
     # Trainer 객체 생성 및 훈련 실행
     trainer = Trainer(
@@ -121,6 +180,7 @@ def main():
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
         compute_metrics=compute_metrics,
+        preprocess_logits_for_metrics=preprocess_logits_for_metrics,
     )
 
     trainer.train()
