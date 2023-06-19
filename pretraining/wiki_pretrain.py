@@ -14,11 +14,10 @@ from pathlib import Path
 
 
 def main():
-    wandb.init(project="klue_mrc_pretrain", name="wiki_pretrain") # klue_mrc_pretrain
+    wandb.init(project="klue_mrc_pretrain", name="wiki_pretrain_20epoch") # klue_mrc_pretrain
     
     set_seed(42)
 
-    # 모델 및 토크나이저 불러오기
     model_name = "klue/roberta-large"
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     model = RobertaForMaskedLM.from_pretrained(model_name)
@@ -72,7 +71,8 @@ def main():
     else:
         train_dataset = LineByLineTextDataset(tokenizer, file_path=train_path, block_size=384)
         eval_dataset = LineByLineTextDataset(tokenizer, file_path=eval_path, block_size=384)
-        eval_dataset_for_check = eval_dataset[:256]
+    
+    eval_dataset_for_check = eval_dataset[:256]
 
     # 데이터 콜레이터 생성
     data_collator = DataCollatorForLanguageModeling(
@@ -83,18 +83,18 @@ def main():
 
     # 훈련 인자 설정
     training_args = TrainingArguments(
-        output_dir=f"../pretrained_models/{model_name.replace('/', '_').replace('-', '_')}",  # 저장할 디렉토리 경로
-        overwrite_output_dir=True,  # 기존 결과 디렉토리를 덮어쓸지 여부
-        num_train_epochs=5,  # pretraining epoch 수
+        output_dir=f"../pretrained_models/{model_name.replace('/', '_').replace('-', '_')}_20epoch",  # 저장할 디렉토리 경로
+        overwrite_output_dir=False,  # 기존 결과 디렉토리를 덮어쓸지 여부
+        num_train_epochs=20,  # pretraining epoch 수
         per_device_train_batch_size=16,  # 배치 크기
         per_device_eval_batch_size=16,  # 배치 크기
         save_total_limit=2,  # 저장할 체크포인트의 최대 개수
         prediction_loss_only=False,  # MLM 손실 함수만 사용
-        learning_rate=5e-5,  # 학습률
+        learning_rate=1e-5,  # 학습률
         logging_strategy='steps',
         logging_steps=100,
-        save_steps=1000,
-        eval_steps=1000,
+        save_steps=4000,
+        eval_steps=4000,
         save_strategy="steps",
         evaluation_strategy="steps",
         load_best_model_at_end=True,
@@ -102,14 +102,14 @@ def main():
         report_to="wandb",
         greater_is_better=True,
         seed=42,
-        warmup_steps=5000,
+        warmup_steps=20000,
         # eval_accumulation_steps=4,
     )
 
     training_args_for_check = TrainingArguments(
-        output_dir=f"../pretrained_models/{model_name.replace('/', '_').replace('-', '_')}",  # 저장할 디렉토리 경로
-        overwrite_output_dir=True,  # 기존 결과 디렉토리를 덮어쓸지 여부
-        num_train_epochs=5,  # pretraining epoch 수
+        output_dir=f"../pretrained_models/{model_name.replace('/', '_').replace('-', '_')}_20epoch",  # 저장할 디렉토리 경로
+        overwrite_output_dir=False,  # 기존 결과 디렉토리를 덮어쓸지 여부
+        num_train_epochs=20,  # pretraining epoch 수
         per_device_train_batch_size=16,  # 배치 크기
         per_device_eval_batch_size=16,  # 배치 크기
         save_total_limit=2,  # 저장할 체크포인트의 최대 개수
@@ -126,7 +126,7 @@ def main():
         report_to="wandb",
         greater_is_better=True,
         seed=42,
-        warmup_steps=5000,
+        warmup_steps=20000,
         # eval_accumulation_steps=4,
     )
 
@@ -159,8 +159,6 @@ def main():
         masked_preds = preds[masked_indices]
         print("All masked preds:", masked_preds)
         print("# of masked preds:", len(masked_preds[masked_preds.nonzero()]))
-        # masked_pred_ids = masked_preds.argmax(-1)
-        # print("masked_pred_ids:", masked_pred_ids)
         masked_accuracy = (masked_labels == masked_preds).mean()
         print("masked_accuracy:", masked_accuracy)
         
