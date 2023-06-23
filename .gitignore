@@ -235,3 +235,5 @@ models/*
 outputs/*
 config/*
 data/
+pretrained_models/*
+nohup.out
