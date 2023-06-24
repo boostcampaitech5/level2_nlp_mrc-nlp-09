@@ -182,22 +182,11 @@
 
 - TF/IDF는 단어가 얼마나 반복되는지, 얼마나 자주 사용되는 단어인지를 계산에 사용
     
-    $$
-    \text{Score}(D,Q)
-    =\displaystyle\sum_{\text{term}\in Q}\text{TF-IDF}(\text{term},Q)
-    *\text{TF-IDF}(\text{term},D)
-    $$
+    $$\text{Score}(D,Q) = \displaystyle\sum_{\text{term}\in Q}\text{TF-IDF}(\text{term},Q) *\text{TF-IDF}(\text{term},D)$$
     
 - bm25는 TF-IDF 의 개념을 바탕으로, 문서의 길이까지 고려하여 점수를 매김
     
-    $$
-    \text{Score}(D,Q)
-    =\displaystyle\sum_{\text{term}\in Q}\text{IDF}(\text{term})
-    \cdot
-    \frac
-    {\text{TF-IDF}(\text{term}, D)\cdot(k_1+1)}
-    {\text{TF-IDF}(\text{term},D)+k_1\cdot(1-b+b\cdot\frac{|D|}{\text{avgdl}})}
-    $$
+    $$\text{Score}(D,Q) = \sum_{\text{term} \in Q} \text{IDF}(\text{term}) \cdot \frac{\text{TF-IDF}(\text{term}, D) \cdot (k_1+1)}{\text{TF-IDF}(\text{term},D) + k_1 \cdot (1-b+b \cdot \frac{|D|}{\text{avgdl}})}$$
     
 - **rank_bm25** 라이브러리 [1] 사용
 - 라이브러리의 기본값은 공백 단위로 문서를 토크나이징
