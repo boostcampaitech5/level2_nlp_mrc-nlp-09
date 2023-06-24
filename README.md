@@ -5,7 +5,6 @@
 
 # 1. 개요
 
----
 
 ### 대회 Task: [KLUE-MRC] Open-Domain Question-Answering
 
@@ -19,9 +18,10 @@
 - **협업**: Git(GitHub), Notion, Slack
 - **모니터링**: WandB
 
+---
+
 # 2. 팀 구성 및 역할
 
----
 
 ### 김세형_T5038
 
@@ -51,9 +51,10 @@
 - k-fold를 이용한 학습 안되는 부분 재학습
 - hugging face 모델들 가져와서 실험
 
-# 3. 수행 결과(표o 데이터베이스x)
-
 ---
+
+# 3. 수행 결과
+
 
 ## 3.1. Retrieval
 
@@ -96,9 +97,9 @@
 | 하드 보팅 + weight | 70.00 | 77.39 |
 | 소프트 보팅 + weight | 68.75 | 76.6 |
 
-# 4. 수행 절차 및 방법
-
 ---
+
+# 4. 수행 절차 및 방법
 
 ## 4.0. Baseline
 
@@ -562,9 +563,9 @@
 - inference 출력 중 각 질문에 따라 예측한 20개의 정답과 확률이 저장된 nbest_predictions.json을 사용해 소프트 보팅
 - em 62.5 → 65.4
 
-# 5. 자체 평가
-
 ---
+
+# 5. 자체 평가
 
 ## 5.1. What’s Good
 
@@ -581,9 +582,10 @@
 - klue/roberta-large 모델은 [UNK] 토큰을 처리하고 개행 문자를 제거했을 때보다 pretraining을 거쳤던 환경에서 더 좋은 성능을 보임. 이를 통해 pretraining 환경을 잘 유지하며 파인튜닝하는 것이 성능 향상으로 이어짐을 알게 됨
 - transformers 라이브러리를 깊게 공부해볼 수 있었음
 
+---
+
 # References
 
----
 
 1. rank_bm25: [https://github.com/dorianbrown/rank_bm25](https://github.com/dorianbrown/rank_bm25)
 2. Karpukhin, V., Oğuz, B., Min, S., Lewis, P., Wu, L., Edunov, S., ... & Yih, W. T. (2020). Dense passage retrieval for open-domain question answering.
